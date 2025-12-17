@@ -10,7 +10,7 @@ import {
 // --- CONFIGURATION ---
 // When developing locally: "http://localhost:8000"
 // When deployed: "https://your-app-name.onrender.com"
-const API_BASE = "http://localhost:8000"; 
+const API_BASE = "https://url-shortner-backend-bhvv.onrender.com"; 
 
 export default function App() {
   const [longUrl, setLongUrl] = useState('');
