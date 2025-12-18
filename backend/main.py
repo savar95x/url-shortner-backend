@@ -24,7 +24,6 @@ Base = declarative_base()
 
 class URLItem(Base):
     __tablename__ = "urls"
-    # CHANGED: BigInteger -> Integer to fix SQLite local error
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     original_url = Column(String, index=True)
     short_code = Column(String, unique=True, index=True)
@@ -87,7 +86,6 @@ def record_analytics(short_code: str, country: str, db: Session):
         db.commit()
     except Exception as e:
         print(f"Analytics Error: {e}")
-        # Don't raise, just log, so we don't crash the request
 
 # --- ENDPOINTS ---
 @app.get("/")
@@ -109,6 +107,17 @@ def get_analytics(db: Session = Depends(get_db)):
 
 @app.post("/shorten")
 def shorten_url(item: URLCreate, db: Session = Depends(get_db)):
+    # 0. CHECK IF EXISTS (Prevent Duplicates)
+    existing_url = db.query(URLItem).filter(URLItem.original_url == item.url).first()
+    
+    if existing_url:
+        # Return existing code, but mark 'existed' as True
+        return {
+            "short_code": existing_url.short_code, 
+            "original": item.url, 
+            "existed": True
+        }
+
     # 1. Create DB Entry
     db_obj = URLItem(original_url=item.url)
     db.add(db_obj)
@@ -126,9 +135,9 @@ def shorten_url(item: URLCreate, db: Session = Depends(get_db)):
     try:
         r_cache.set(short_code, item.url, ex=3600)
     except Exception:
-        pass # Redis might be down locally, ignore
+        pass 
     
-    return {"short_code": short_code, "original": item.url}
+    return {"short_code": short_code, "original": item.url, "existed": False}
 
 @app.get("/{short_code}")
 def redirect_to_url(
