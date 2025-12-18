@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowRight, Activity, Terminal, Database, 
-  Zap, Play, Layout, Server 
+  Zap, Play, Layout, Server, Copy 
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell 
 } from 'recharts';
 
 // --- CONFIGURATION ---
-// When developing locally: "http://localhost:8000"
-// When deployed: "https://your-app-name.onrender.com"
+// TODO: BEFORE DEPLOYING, switch this URL to your Render Backend URL
+// const API_BASE = "http://localhost:8000"; 
 const API_BASE = "https://url-shortner-backend-bhvv.onrender.com"; 
 
 export default function App() {
@@ -18,12 +18,46 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [analytics, setAnalytics] = useState([]);
+  const [isRedirecting, setIsRedirecting] = useState(false); // New state for redirect handling
   const logsEndRef = useRef(null);
 
   // Auto-scroll logs
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
+
+  // --- CLIENT-SIDE REDIRECT LOGIC ---
+  useEffect(() => {
+    // Check if there is a path (e.g., /2Bk)
+    const path = window.location.pathname.replace('/', '');
+    
+    if (path) {
+      setIsRedirecting(true);
+      
+      const performRedirect = async () => {
+        try {
+          // Ask Backend where this code goes
+          const res = await fetch(`${API_BASE}/${path}`);
+          const data = await res.json();
+          
+          if (data.location) {
+            // Hard Redirect to the real URL
+            window.location.href = data.location;
+          } else {
+            // If invalid code, go back to dashboard
+            setIsRedirecting(false);
+            window.history.pushState({}, "", "/"); 
+            alert("Invalid Short URL");
+          }
+        } catch (err) {
+          setIsRedirecting(false);
+          console.error("Redirect failed", err);
+        }
+      };
+      
+      performRedirect();
+    }
+  }, []);
 
   const addLog = (message, type = 'info', latency = 0) => {
     setLogs(prev => [...prev, { 
@@ -34,6 +68,9 @@ export default function App() {
 
   // --- API: Fetch Data ---
   const fetchData = async () => {
+    // Don't fetch dashboard data if we are trying to redirect
+    if (window.location.pathname.length > 1) return;
+
     try {
       // Fetch URLs
       const urlsRes = await fetch(`${API_BASE}/api/urls`);
@@ -81,7 +118,10 @@ export default function App() {
       const data = await res.json();
       const latency = Math.round(performance.now() - start);
       
-      addLog(`Created: ${data.short_code}`, "success", latency);
+      // LOG UPDATE: Show the full clickable Frontend URL
+      const fullShortUrl = `${window.location.origin}/${data.short_code}`;
+      addLog(`Created: ${fullShortUrl}`, "success", latency);
+      
       setLongUrl('');
       fetchData(); // Refresh list immediately
 
@@ -90,6 +130,16 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- Copy to Clipboard ---
+  const handleCopy = (shortCode) => {
+    const fullUrl = `${window.location.origin}/${shortCode}`;
+    navigator.clipboard.writeText(fullUrl).then(() => {
+      addLog(`Copied: ${fullUrl}`, "success");
+    }).catch(err => {
+      addLog("Copy failed", "error");
+    });
   };
 
   // --- API: Visit (Test Redirect) ---
@@ -103,9 +153,12 @@ export default function App() {
       
       const latency = Math.round(performance.now() - start);
       
-      // In the backend, we return { location: "..." }
       if (data.location) {
         addLog(`Redirect -> ${data.location}`, "success", latency);
+        
+        // Open the URL in a new tab
+        window.open(data.location, '_blank');
+        
         fetchData(); // Update stats
       } else {
          addLog(`Error: ${data.detail}`, "error");
@@ -115,6 +168,18 @@ export default function App() {
       addLog("Network Error", "error");
     }
   };
+
+  // --- RENDER REDIRECT LOADING SCREEN ---
+  if (isRedirecting) {
+    return (
+      <div className="h-screen bg-[#050505] flex items-center justify-center text-[#e5e5e5] font-mono">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin"></div>
+          <span className="animate-pulse text-sm tracking-widest uppercase">Redirecting to destination...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-[#050505] text-[#e5e5e5] overflow-hidden flex flex-col font-sans">
@@ -126,27 +191,34 @@ export default function App() {
       `}</style>
 
       {/* Header */}
-      <header className="h-14 border-b border-[#222] flex items-center justify-between px-4 bg-[#0a0a0a]">
+      <header className="h-14 border-b border-[#222] flex items-center justify-between px-4 bg-[#0a0a0a] shrink-0">
         <div className="flex items-center gap-4">
-          <span className="font-serif italic text-lg tracking-wide pr-4 border-r border-[#222]">Savar</span>
+          <a 
+            href="https://savar.is-a.dev" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="font-serif italic text-lg tracking-wide pr-4 border-r border-[#222] hover:text-white transition-colors"
+          >
+            Savar
+          </a>
           <div className="flex items-center gap-2 text-xs font-mono text-neutral-500">
             <Layout className="w-3 h-3" />
-            <span>PRODUCTION</span>
-            <span className="text-neutral-700">/</span>
+            <span className="hidden sm:inline">PRODUCTION</span>
+            <span className="text-neutral-700 hidden sm:inline">/</span>
             <span className="text-white">DASHBOARD</span>
           </div>
         </div>
         <div className="flex items-center gap-2 px-3 py-1 rounded bg-[#111] border border-[#222]">
            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-           <span className="text-[10px] font-mono text-neutral-400 uppercase">Live Connection</span>
+           <span className="text-[10px] font-mono text-neutral-400 uppercase">Live</span>
         </div>
       </header>
 
       {/* Main Workspace */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         
         {/* LEFT PANEL */}
-        <div className="w-[450px] border-r border-[#222] flex flex-col bg-[#080808]">
+        <div className="w-full md:w-[450px] border-b md:border-b-0 md:border-r border-[#222] flex flex-col bg-[#080808] h-1/2 md:h-full">
           <div className="p-6 border-b border-[#222]">
             <h2 className="text-xs font-mono text-neutral-500 uppercase tracking-widest mb-4 flex items-center gap-2">
               <Zap className="w-3 h-3" /> Generator
@@ -169,16 +241,31 @@ export default function App() {
              </div>
              <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {generatedLinks.map((link) => (
-                  <div key={link.shortCode} className="group p-3 rounded border border-transparent hover:border-[#333] hover:bg-[#111] cursor-default">
+                  // FIX: Use snake_case 'short_code' to match Python Backend
+                  <div key={link.short_code} className="group p-3 rounded border border-transparent hover:border-[#333] hover:bg-[#111] cursor-default">
                     <div className="flex justify-between items-center mb-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-blue-400 font-mono text-sm">/{link.shortCode}</span>
+                        {/* FIX: link.short_code */}
+                        <span className="text-blue-400 font-mono text-sm">/{link.short_code}</span>
                         <span className="text-[10px] text-neutral-600 font-mono">Clicks: {link.clicks}</span>
                       </div>
-                      <button onClick={() => handleSimulateVisit(link.shortCode)} className="opacity-0 group-hover:opacity-100 bg-[#222] text-[10px] px-2 py-1 rounded text-white font-mono flex items-center gap-1">
-                        TEST <Play className="w-2 h-2" />
-                      </button>
+                      {/* FIX: link.short_code */}
+                      <div className="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={() => handleCopy(link.short_code)} 
+                          className="bg-[#222] hover:bg-[#333] text-[10px] px-2 py-1 rounded text-white font-mono flex items-center gap-1"
+                        >
+                          COPY <Copy className="w-2 h-2" />
+                        </button>
+                        <button 
+                          onClick={() => handleSimulateVisit(link.short_code)} 
+                          className="bg-[#222] hover:bg-[#333] text-[10px] px-2 py-1 rounded text-white font-mono flex items-center gap-1"
+                        >
+                          TEST <Play className="w-2 h-2" />
+                        </button>
+                      </div>
                     </div>
+                    {/* link.original_url is already snake_case, so this was correct */}
                     <div className="text-[10px] text-neutral-500 truncate font-mono">{link.original_url}</div>
                   </div>
                 ))}
@@ -187,7 +274,7 @@ export default function App() {
         </div>
 
         {/* RIGHT PANEL */}
-        <div className="flex-1 flex flex-col bg-[#050505]">
+        <div className="flex-1 flex flex-col bg-[#050505] h-1/2 md:h-full">
           <div className="flex-1 border-b border-[#222] flex flex-col min-h-[50%]">
              <div className="h-10 border-b border-[#222] bg-[#0a0a0a] flex items-center px-4">
                 <Terminal className="w-3 h-3 text-neutral-500 mr-2" />
