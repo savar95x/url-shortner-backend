@@ -1,16 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/shortener",
+      "source": "/(.*)",
       "destination": "/index.html"
-    },
-    {
-      "source": "/shortener/(.*)",
-      "destination": "/index.html"
-    }
-    {
-      "source": "/shortener/:match*",
-      "destination": "/:match*"
     }
   ]
 }
