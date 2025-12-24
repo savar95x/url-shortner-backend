@@ -30,13 +30,18 @@ export default function App() {
     addLog(`Configured API: ${API_BASE}`, "system");
   }, []);
 
-  const getRelativePath = () => {
+const getRelativePath = () => {
     let path = window.location.pathname;
-    if (ROUTER_BASE && path.startsWith(ROUTER_BASE)) {
-      path = path.replace(ROUTER_BASE, '');
+    
+    const BASE_SEGMENT = '/shortener';
+
+    if (path.startsWith(BASE_SEGMENT)) {
+      path = path.substring(BASE_SEGMENT.length);
     }
+
     if (path.startsWith('/')) path = path.substring(1);
     if (path.endsWith('/')) path = path.substring(0, path.length - 1);
+
     return path;
   };
 
