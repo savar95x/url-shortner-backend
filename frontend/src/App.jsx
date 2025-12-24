@@ -280,7 +280,7 @@ export default function App() {
           </div>
           <div className="h-[40%] bg-[#080808] flex flex-col">
              <div className="h-10 border-b border-[#222] flex items-center px-4"><Activity className="w-3 h-3 text-neutral-500 mr-2" /><span className="text-xs font-mono text-neutral-500 uppercase">Traffic</span></div>
-             <div className="flex-1 p-4">
+             <div style={{ width: '100%', height: 400 }} className="flex-1 p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={analytics}>
                     <XAxis dataKey="name" stroke="#333" fontSize={10} tickLine={false} axisLine={false} />

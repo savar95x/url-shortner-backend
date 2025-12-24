@@ -43,9 +43,15 @@ r_cache = redis.from_url(REDIS_URL, decode_responses=True)
 # --- FASTAPI APP ---
 app = FastAPI(title="The Scaler")
 
+origins = [
+        "http://localhost:5173",
+        "https://savar-shortener.vercel.app",
+        "https://apps.savar.is-a.dev",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
